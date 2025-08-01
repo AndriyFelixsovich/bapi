@@ -59,12 +59,6 @@ class BybitApiService
         }
     }
 
-    private function generateSignature($params, $timestamp)
-    {
-        $paramString = $timestamp . $this->apiKey . '5000' . http_build_query($params);
-        return hash_hmac('sha256', $paramString, $this->apiSecret);
-    }
-
     public function getOrderStatus($orderId)
     {
         $endpoint = '/v5/order/realtime';
@@ -117,21 +111,27 @@ class BybitApiService
 
     public function getWalletBalance()
     {
+        $serverTimestamp = $this->getServerTimestamp();
+        if (!$serverTimestamp) {
+            Log::error('Не вдалося отримати серверний час Bybit');
+            return null;
+        }
+
         $endpoint = '/v5/account/wallet-balance';
-        $timestamp = round(microtime(true) * 1000);
+
 
         $params = [
             'accountType' => 'UNIFIED'
         ];
 
-        $signature = $this->generateSignature($params, $timestamp);
+        $signature = $this->generateSignature($params, $serverTimestamp);
 
         try {
             $response = $this->client->get($this->baseUrl . $endpoint, [
                 'headers' => [
                     'X-BAPI-API-KEY' => $this->apiKey,
                     'X-BAPI-SIGN' => $signature,
-                    'X-BAPI-TIMESTAMP' => $timestamp,
+                    'X-BAPI-TIMESTAMP' => $serverTimestamp,
                     'X-BAPI-RECV-WINDOW' => '5000'
                 ],
                 'query' => $params
@@ -140,6 +140,31 @@ class BybitApiService
             return json_decode($response->getBody()->getContents(), true);
         } catch (\Exception $e) {
             Log::error('Bybit API Error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function generateSignature($params, $timestamp)
+    {
+        ksort($params);
+        $param_str = http_build_query($params);
+        $recvWindow = '5000';
+
+        $signString = $timestamp . $this->apiKey . $recvWindow . $param_str;
+
+        $signature = hash_hmac('sha256', $signString, $this->apiSecret);
+
+        return $signature;
+    }
+
+    private function getServerTimestamp()
+    {
+        try {
+            $response = $this->client->get($this->baseUrl . '/v5/market/time');
+            $data = json_decode($response->getBody()->getContents(), true);
+            return $data['time'] ?? null;
+        } catch (\Exception $e) {
+            Log::error('Bybit Time Sync Error: ' . $e->getMessage());
             return null;
         }
     }

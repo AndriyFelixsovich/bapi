@@ -25,8 +25,8 @@ class DCABotService
             'grid_step' => $config['grid_step'],
             'martingale_percent' => $config['martingale_percent'],
             'take_profit_percent' => $config['take_profit_percent'],
-            'stop_loss_percent' => $config['stop_loss_percent'],
-            'leverage' => $config['leverage'],
+//            'stop_loss_percent' => $config['stop_loss_percent'],
+//            'leverage' => $config['leverage'],
             'is_active' => false,
             'config' => $config
         ]);
